@@ -39,6 +39,8 @@
 extern "C"{
 #endif
 
+#define likely(x)    __builtin_expect(!!(x), 1)
+
 #if SPH_SMALL_FOOTPRINT && !defined SPH_SMALL_FOOTPRINT_CUBEHASH
 #define SPH_SMALL_FOOTPRINT_CUBEHASH   1
 #endif
@@ -581,15 +583,18 @@ cubehash_close(sph_cubehash_context *sc, unsigned ub, unsigned n,
 {
 	unsigned char *buf, *out;
 	size_t ptr;
-	unsigned z;
+	const unsigned z = 0x80 >> n;
+	unsigned y;
 	int i;
 	DECL_STATE
 
 	buf = sc->buf;
 	ptr = sc->ptr;
-	z = 0x80 >> n;
+	if (likely(ptr == 0))
+		memset(buf, 0, (sizeof sc->buf));
+	else
+		memset(buf + ptr, 0, (sizeof sc->buf) - ptr);
 	buf[ptr ++] = ((ub & -z) | z) & 0xFF;
-	memset(buf + ptr, 0, (sizeof sc->buf) - ptr);
 	READ_STATE(sc);
 	INPUT_BLOCK;
 	for (i = 0; i < 11; i ++) {
@@ -599,8 +604,8 @@ cubehash_close(sph_cubehash_context *sc, unsigned ub, unsigned n,
 	}
 	WRITE_STATE(sc);
 	out = dst;
-	for (z = 0; z < out_size_w32; z ++)
-		sph_enc32le(out + (z << 2), sc->state[z]);
+	for (y = 0; y < out_size_w32; y++)
+		sph_enc32le(out + (y << 2), sc->state[y]);
 }
 
 /* see sph_cubehash.h */
