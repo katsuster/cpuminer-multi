@@ -1887,8 +1887,8 @@ static void *miner_thread(void *userdata)
 	 * and if that fails, then SCHED_BATCH. No need for this to be an
 	 * error if it fails */
 	if (!opt_benchmark && opt_priority == 0) {
-		setpriority(PRIO_PROCESS, 0, 19);
-		drop_policy();
+		//setpriority(PRIO_PROCESS, 0, 19);
+		//drop_policy();
 	} else {
 		int prio = 0;
 #ifndef WIN32
@@ -1914,9 +1914,9 @@ static void *miner_thread(void *userdata)
 			applog(LOG_DEBUG, "Thread %d priority %d (nice %d)",
 				thr_id,	opt_priority, prio);
 #endif
-		setpriority(PRIO_PROCESS, 0, prio);
+		//setpriority(PRIO_PROCESS, 0, prio);
 		if (opt_priority == 0) {
-			drop_policy();
+			//drop_policy();
 		}
 	}
 
