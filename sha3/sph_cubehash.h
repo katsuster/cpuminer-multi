@@ -77,8 +77,8 @@ extern "C"{
 typedef struct {
 #ifndef DOXYGEN_IGNORE
 	unsigned char buf[32];    /* first field, for alignment */
-	size_t ptr;
 	sph_u32 state[32];
+	size_t ptr;
 #endif
 } sph_cubehash_context;
 

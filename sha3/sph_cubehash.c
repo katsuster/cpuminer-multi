@@ -266,6 +266,45 @@ static const sph_u32 IV512[] = {
 		x7 ^= sph_dec32le_aligned(buf + 28); \
 	} while (0)
 
+void sw(uint32_t *a, uint32_t *b)
+{
+	uint32_t tmp = *b;
+	*b = *a;
+	*a = tmp;
+}
+
+#define ROUND_ONE    do { \
+		int i; \
+		uint32_t *b = (sc)->state; \
+		for (i = 0; i < 16; i++) { \
+			b[i + 16] += b[i]; \
+			b[i] = ROTL32(b[i], 7); \
+		} \
+		for (i = 0; i < 8; i++) { \
+			sw(&b[i], &b[i + 8]); \
+		} \
+		for (i = 0; i < 16; i++) \
+			b[i] ^= b[i + 16]; \
+		for (i = 0; i < 4; i++) { \
+			sw(&b[16 + i * 4], &b[18 + i * 4]); \
+			sw(&b[17 + i * 4], &b[19 + i * 4]); \
+		} \
+		for (i = 0; i < 16; i++) { \
+			b[i + 16] += b[i]; \
+			b[i] = ROTL32(b[i], 11); \
+		} \
+		for (i = 0; i < 4; i++) { \
+			sw(&b[0 + i], &b[4 + i]); \
+			sw(&b[8 + i], &b[12 + i]); \
+		} \
+		for (i = 0; i < 16; i++) \
+			b[i] ^= b[i + 16]; \
+		for (i = 0; i < 4; i++) { \
+			sw(&b[16 + i * 4], &b[17 + i * 4]); \
+			sw(&b[18 + i * 4], &b[19 + i * 4]); \
+		} \
+	} while (0)
+
 #define ROUND_EVEN   do { \
 		xg = T32(x0 + xg); \
 		x0 = ROTL32(x0, 7); \
@@ -472,7 +511,16 @@ static const sph_u32 IV512[] = {
  * for small architectures.
  */
 
-#if SPH_CUBEHASH_UNROLL == 2
+#if 1
+
+#define SIXTEEN_ROUNDS   do { \
+		int j; \
+		for (j = 0; j < 16; j ++) { \
+			ROUND_ONE; \
+		} \
+	} while (0)
+
+#elif SPH_CUBEHASH_UNROLL == 2
 
 #define SIXTEEN_ROUNDS   do { \
 		int j; \
