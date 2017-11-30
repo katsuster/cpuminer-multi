@@ -34,6 +34,8 @@
 #include <string.h>
 #include <limits.h>
 
+#include <emmintrin.h>
+
 #include "sph_cubehash.h"
 #ifdef __cplusplus
 extern "C"{
@@ -264,6 +266,77 @@ static const sph_u32 IV512[] = {
 		x5 ^= sph_dec32le_aligned(buf + 20); \
 		x6 ^= sph_dec32le_aligned(buf + 24); \
 		x7 ^= sph_dec32le_aligned(buf + 28); \
+	} while (0)
+
+#define SSE_ROTL(x, n) do { \
+		__m128i mw0, mw1; \
+		mw0 = _mm_slli_epi32((x), (n)); \
+		mw1 = _mm_srli_epi32((x), 32 - (n)); \
+		x = _mm_or_si128(mw0, mw1); \
+	} while (0);
+
+#define SSE_SWP(a, b) do { \
+		__m128i mw; \
+		mw = b; \
+		b = a; \
+		a = mw; \
+	} while (0);
+
+#define ROUND_ONE_SSE    do { \
+		__m128i mx0, mx4, mx8, mxc; \
+		__m128i mxg, mxk, mxo, mxs; \
+		mx0 = _mm_load_si128((void *)&x0); \
+		mx4 = _mm_load_si128((void *)&x4); \
+		mx8 = _mm_load_si128((void *)&x8); \
+		mxc = _mm_load_si128((void *)&xc); \
+		mxg = _mm_load_si128((void *)&xg); \
+		mxk = _mm_load_si128((void *)&xk); \
+		mxo = _mm_load_si128((void *)&xo); \
+		mxs = _mm_load_si128((void *)&xs); \
+		mxg = _mm_add_epi32(mx0, mxg); \
+		mxk = _mm_add_epi32(mx4, mxk); \
+		mxo = _mm_add_epi32(mx8, mxo); \
+		mxs = _mm_add_epi32(mxc, mxs); \
+		SSE_ROTL(mx0, 7); \
+		SSE_ROTL(mx4, 7); \
+		SSE_ROTL(mx8, 7); \
+		SSE_ROTL(mxc, 7); \
+		SSE_SWP(mx0, mx8); \
+		SSE_SWP(mx4, mxc); \
+		mx0 = _mm_xor_si128(mx0, mxg); \
+		mx4 = _mm_xor_si128(mx4, mxk); \
+		mx8 = _mm_xor_si128(mx8, mxo); \
+		mxc = _mm_xor_si128(mxc, mxs); \
+		mxg = _mm_shuffle_epi32(mxg, 0x4e); \
+		mxk = _mm_shuffle_epi32(mxk, 0x4e); \
+		mxo = _mm_shuffle_epi32(mxo, 0x4e); \
+		mxs = _mm_shuffle_epi32(mxs, 0x4e); \
+		mxg = _mm_add_epi32(mx0, mxg); \
+		mxk = _mm_add_epi32(mx4, mxk); \
+		mxo = _mm_add_epi32(mx8, mxo); \
+		mxs = _mm_add_epi32(mxc, mxs); \
+		SSE_ROTL(mx0, 11); \
+		SSE_ROTL(mx4, 11); \
+		SSE_ROTL(mx8, 11); \
+		SSE_ROTL(mxc, 11); \
+		SSE_SWP(mx0, mx4); \
+		SSE_SWP(mx8, mxc); \
+		mx0 = _mm_xor_si128(mx0, mxg); \
+		mx4 = _mm_xor_si128(mx4, mxk); \
+		mx8 = _mm_xor_si128(mx8, mxo); \
+		mxc = _mm_xor_si128(mxc, mxs); \
+		mxg = _mm_shuffle_epi32(mxg, 0xb1); \
+		mxk = _mm_shuffle_epi32(mxk, 0xb1); \
+		mxo = _mm_shuffle_epi32(mxo, 0xb1); \
+		mxs = _mm_shuffle_epi32(mxs, 0xb1); \
+		_mm_store_si128((void *)&x0, mx0); \
+		_mm_store_si128((void *)&x4, mx4); \
+		_mm_store_si128((void *)&x8, mx8); \
+		_mm_store_si128((void *)&xc, mxc); \
+		_mm_store_si128((void *)&xg, mxg); \
+		_mm_store_si128((void *)&xk, mxk); \
+		_mm_store_si128((void *)&xo, mxo); \
+		_mm_store_si128((void *)&xs, mxs); \
 	} while (0)
 
 void sw(uint32_t *a, uint32_t *b)
@@ -516,7 +589,7 @@ void sw(uint32_t *a, uint32_t *b)
 #define SIXTEEN_ROUNDS   do { \
 		int j; \
 		for (j = 0; j < 16; j ++) { \
-			ROUND_ONE; \
+			ROUND_ONE_SSE; \
 		} \
 	} while (0)
 
