@@ -36,6 +36,8 @@
 
 #if defined(__SSE2__)
 #  include <emmintrin.h>
+#elif defined(__ARM_NEON__)
+#  include <arm_neon.h>
 #endif
 
 #include "sph_cubehash.h"
@@ -341,6 +343,91 @@ static const sph_u32 IV512[] = {
 		_mm_store_si128((void *)&xs, mxs); \
 	} while (0)
 
+#define NEON_ROTL(x, n) do { \
+		uint32x4_t mw0, mw1; \
+		mw0 = vshlq_n_u32((x), (n)); \
+		mw1 = vshrq_n_u32((x), 32 - (n)); \
+		x = vorrq_u32(mw0, mw1); \
+	} while (0);
+
+#define NEON_SWP(a, b) do { \
+		uint32x4_t mw; \
+		mw = b; \
+		b = a; \
+		a = mw; \
+	} while (0);
+
+#define NEON_STEP5(x) do { \
+		uint64x2_t mw; \
+		mw = vreinterpretq_u64_u32((x)); \
+		mw = vextq_u64(mw, mw, 1); \
+		x = vreinterpretq_u32_u64(mw); \
+	} while (0);
+
+#define ROUND_ONE_NEON    do { \
+		mxg = vaddq_u32(mx0, mxg); \
+		mxk = vaddq_u32(mx4, mxk); \
+		mxo = vaddq_u32(mx8, mxo); \
+		mxs = vaddq_u32(mxc, mxs); \
+		NEON_ROTL(mx0, 7); \
+		NEON_ROTL(mx4, 7); \
+		NEON_ROTL(mx8, 7); \
+		NEON_ROTL(mxc, 7); \
+		NEON_SWP(mx0, mx8); \
+		NEON_SWP(mx4, mxc); \
+		mx0 = veorq_u32(mx0, mxg); \
+		mx4 = veorq_u32(mx4, mxk); \
+		mx8 = veorq_u32(mx8, mxo); \
+		mxc = veorq_u32(mxc, mxs); \
+		NEON_STEP5(mxg); \
+		NEON_STEP5(mxk); \
+		NEON_STEP5(mxo); \
+		NEON_STEP5(mxs); \
+		mxg = vaddq_u32(mx0, mxg); \
+		mxk = vaddq_u32(mx4, mxk); \
+		mxo = vaddq_u32(mx8, mxo); \
+		mxs = vaddq_u32(mxc, mxs); \
+		NEON_ROTL(mx0, 11); \
+		NEON_ROTL(mx4, 11); \
+		NEON_ROTL(mx8, 11); \
+		NEON_ROTL(mxc, 11); \
+		NEON_SWP(mx0, mx4); \
+		NEON_SWP(mx8, mxc); \
+		mx0 = veorq_u32(mx0, mxg); \
+		mx4 = veorq_u32(mx4, mxk); \
+		mx8 = veorq_u32(mx8, mxo); \
+		mxc = veorq_u32(mxc, mxs); \
+		mxg = vrev64q_u32(mxg); \
+		mxk = vrev64q_u32(mxk); \
+		mxo = vrev64q_u32(mxo); \
+		mxs = vrev64q_u32(mxs); \
+	} while (0)
+
+#define SIXTEEN_ROUNDS_NEON   do { \
+		int j; \
+		uint32x4_t mx0, mx4, mx8, mxc; \
+		uint32x4_t mxg, mxk, mxo, mxs; \
+		mx0 = vld1q_u32((void *)&x0); \
+		mx4 = vld1q_u32((void *)&x4); \
+		mx8 = vld1q_u32((void *)&x8); \
+		mxc = vld1q_u32((void *)&xc); \
+		mxg = vld1q_u32((void *)&xg); \
+		mxk = vld1q_u32((void *)&xk); \
+		mxo = vld1q_u32((void *)&xo); \
+		mxs = vld1q_u32((void *)&xs); \
+		for (j = 0; j < 16; j ++) { \
+			ROUND_ONE_NEON; \
+		} \
+		vst1q_u32(&x0, mx0); \
+		vst1q_u32(&x4, mx4); \
+		vst1q_u32(&x8, mx8); \
+		vst1q_u32(&xc, mxc); \
+		vst1q_u32(&xg, mxg); \
+		vst1q_u32(&xk, mxk); \
+		vst1q_u32(&xo, mxo); \
+		vst1q_u32(&xs, mxs); \
+	} while (0)
+
 void sw(uint32_t *a, uint32_t *b)
 {
 	uint32_t tmp = *b;
@@ -588,13 +675,18 @@ void sw(uint32_t *a, uint32_t *b)
 
 #if defined(__SSE2__)
 #  define ROUND_ONE    ROUND_ONE_SSE2
+#  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_SLOW
+#elif defined(__ARM_NEON__)
+#  define ROUND_ONE    ROUND_ONE_NEON
+#  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_NEON
 #else
 #  define ROUND_ONE    ROUND_ONE_SLOW
+#  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_SLOW
 #endif
 
 #if 1
 
-#define SIXTEEN_ROUNDS   do { \
+#define SIXTEEN_ROUNDS_SLOW   do { \
 		int j; \
 		for (j = 0; j < 16; j ++) { \
 			ROUND_ONE; \
