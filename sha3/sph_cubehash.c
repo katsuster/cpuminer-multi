@@ -34,7 +34,9 @@
 #include <string.h>
 #include <limits.h>
 
-#include <emmintrin.h>
+#if defined(__SSE2__)
+#  include <emmintrin.h>
+#endif
 
 #include "sph_cubehash.h"
 #ifdef __cplusplus
@@ -282,7 +284,7 @@ static const sph_u32 IV512[] = {
 		a = mw; \
 	} while (0);
 
-#define ROUND_ONE_SSE    do { \
+#define ROUND_ONE_SSE2    do { \
 		__m128i mx0, mx4, mx8, mxc; \
 		__m128i mxg, mxk, mxo, mxs; \
 		mx0 = _mm_load_si128((void *)&x0); \
@@ -346,7 +348,7 @@ void sw(uint32_t *a, uint32_t *b)
 	*a = tmp;
 }
 
-#define ROUND_ONE    do { \
+#define ROUND_ONE_SLOW    do { \
 		int i; \
 		uint32_t *b = (sc)->state; \
 		for (i = 0; i < 16; i++) { \
@@ -584,12 +586,18 @@ void sw(uint32_t *a, uint32_t *b)
  * for small architectures.
  */
 
+#if defined(__SSE2__)
+#  define ROUND_ONE    ROUND_ONE_SSE2
+#else
+#  define ROUND_ONE    ROUND_ONE_SLOW
+#endif
+
 #if 1
 
 #define SIXTEEN_ROUNDS   do { \
 		int j; \
 		for (j = 0; j < 16; j ++) { \
-			ROUND_ONE_SSE; \
+			ROUND_ONE; \
 		} \
 	} while (0)
 
