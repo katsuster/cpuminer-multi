@@ -80,8 +80,8 @@ extern "C"{
 typedef struct {
 #ifndef DOXYGEN_IGNORE
 	unsigned char buf[64];    /* first field, for alignment */
-	size_t ptr;
 	sph_u32 H[16];
+	size_t ptr;
 #if SPH_64
 	sph_u64 bit_count;
 #else

@@ -76,7 +76,6 @@ extern "C"{
 typedef struct {
 #ifndef DOXYGEN_IGNORE
 	unsigned char buf[144];    /* first field, for alignment */
-	size_t ptr, lim;
 	union {
 #if SPH_64
 		sph_u64 wide[25];
@@ -84,6 +83,7 @@ typedef struct {
 		sph_u32 narrow[50];
 	} u;
 #endif
+	size_t ptr, lim;
 } sph_keccak_context;
 
 /**

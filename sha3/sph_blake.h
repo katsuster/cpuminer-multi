@@ -81,10 +81,10 @@ extern "C"{
 typedef struct {
 #ifndef DOXYGEN_IGNORE
 	unsigned char buf[64];    /* first field, for alignment */
-	size_t ptr;
 	sph_u32 H[8];
 	sph_u32 S[4];
 	sph_u32 T0, T1;
+	size_t ptr;
 #endif
 } sph_blake_small_context;
 

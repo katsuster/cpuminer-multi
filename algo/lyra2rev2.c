@@ -14,11 +14,11 @@ void lyra2rev2_hash(void *state, const void *input)
 {
 	uint32_t _ALIGN(128) hashA[8], hashB[8];
 
-	sph_blake256_context     ctx_blake;
-	sph_keccak256_context    ctx_keccak;
-	sph_cubehash256_context  ctx_cubehash;
-	sph_skein256_context     ctx_skein;
-	sph_bmw256_context       ctx_bmw;
+	sph_blake256_context     _ALIGN(16) ctx_blake;
+	sph_keccak256_context    _ALIGN(16) ctx_keccak;
+	sph_cubehash256_context  _ALIGN(16) ctx_cubehash;
+	sph_skein256_context     _ALIGN(16) ctx_skein;
+	sph_bmw256_context       _ALIGN(16) ctx_bmw;
 
 	sph_blake256_init(&ctx_blake);
 	sph_blake256(&ctx_blake, input, 80);
