@@ -34,7 +34,9 @@
 #include <string.h>
 #include <limits.h>
 
-#if defined(__SSE2__)
+#if defined(__AVX2__)
+#  include <immintrin.h>
+#elif defined(__SSE2__)
 #  include <emmintrin.h>
 #elif defined(__ARM_NEON__)
 #  include <arm_neon.h>
@@ -270,6 +272,51 @@ static const sph_u32 IV512[] = {
 		x5 ^= sph_dec32le_aligned(buf + 20); \
 		x6 ^= sph_dec32le_aligned(buf + 24); \
 		x7 ^= sph_dec32le_aligned(buf + 28); \
+	} while (0)
+
+#define AVX_ROTL(x, n) do { \
+		__m256i mw0, mw1; \
+		mw0 = _mm256_slli_epi32((x), (n)); \
+		mw1 = _mm256_srli_epi32((x), 32 - (n)); \
+		x = _mm256_or_si256(mw0, mw1); \
+	} while (0);
+
+#define AVX_SWP(a, b) do { \
+		__m256i mw; \
+		mw = b; \
+		b = a; \
+		a = mw; \
+	} while (0);
+
+#define ROUND_ONE_AVX2    do { \
+		__m256i mx0, mx8, mxg, mxo; \
+		mx0 = _mm256_load_si256((void *)&x0); \
+		mx8 = _mm256_load_si256((void *)&x8); \
+		mxg = _mm256_load_si256((void *)&xg); \
+		mxo = _mm256_load_si256((void *)&xo); \
+		mxg = _mm256_add_epi32(mx0, mxg); \
+		mxo = _mm256_add_epi32(mx8, mxo); \
+		AVX_ROTL(mx0, 7); \
+		AVX_ROTL(mx8, 7); \
+		AVX_SWP(mx0, mx8); \
+		mx0 = _mm256_xor_si256(mx0, mxg); \
+		mx8 = _mm256_xor_si256(mx8, mxo); \
+		mxg = _mm256_shuffle_epi32(mxg, 0x4e); \
+		mxo = _mm256_shuffle_epi32(mxo, 0x4e); \
+		mxg = _mm256_add_epi32(mx0, mxg); \
+		mxo = _mm256_add_epi32(mx8, mxo); \
+		AVX_ROTL(mx0, 11); \
+		AVX_ROTL(mx8, 11); \
+		mx0 = _mm256_permute2x128_si256(mx0, mx0, 0x01); \
+		mx8 = _mm256_permute2x128_si256(mx8, mx8, 0x01); \
+		mx0 = _mm256_xor_si256(mx0, mxg); \
+		mx8 = _mm256_xor_si256(mx8, mxo); \
+		mxg = _mm256_shuffle_epi32(mxg, 0xb1); \
+		mxo = _mm256_shuffle_epi32(mxo, 0xb1); \
+		_mm256_store_si256((void *)&x0, mx0); \
+		_mm256_store_si256((void *)&x8, mx8); \
+		_mm256_store_si256((void *)&xg, mxg); \
+		_mm256_store_si256((void *)&xo, mxo); \
 	} while (0)
 
 #define SSE_ROTL(x, n) do { \
@@ -673,7 +720,10 @@ void sw(uint32_t *a, uint32_t *b)
  * for small architectures.
  */
 
-#if defined(__SSE2__)
+#if defined(__AVX2__)
+#  define ROUND_ONE    ROUND_ONE_AVX2
+#  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_SLOW
+#elif defined(__SSE2__)
 #  define ROUND_ONE    ROUND_ONE_SSE2
 #  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_SLOW
 #elif defined(__ARM_NEON__)
