@@ -38,7 +38,7 @@
 #  include <immintrin.h>
 #elif defined(__SSE2__)
 #  include <emmintrin.h>
-#elif defined(__ARM_NEON__)
+#elif defined(__ARM_NEON)
 #  include <arm_neon.h>
 #endif
 
@@ -753,7 +753,7 @@ void sw(uint32_t *a, uint32_t *b)
 #  define ROUND_ONE    ROUND_ONE_SSE2
 #  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_SLOW
 #  define FINAL_ROUNDS      FINAL_ROUNDS_SLOW
-#elif defined(__ARM_NEON__)
+#elif defined(__ARM_NEON)
 #  define ROUND_ONE    ROUND_ONE_NEON
 #  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_NEON
 #  define FINAL_ROUNDS      FINAL_ROUNDS_NEON
