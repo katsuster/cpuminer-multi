@@ -475,6 +475,31 @@ static const sph_u32 IV512[] = {
 		vst1q_u32(&xs, mxs); \
 	} while (0)
 
+#define FINAL_ROUNDS_NEON   do { \
+		int j; \
+		uint32x4_t mx0, mx4, mx8, mxc; \
+		uint32x4_t mxg, mxk, mxo, mxs; \
+		mx0 = vld1q_u32((void *)&x0); \
+		mx4 = vld1q_u32((void *)&x4); \
+		mx8 = vld1q_u32((void *)&x8); \
+		mxc = vld1q_u32((void *)&xc); \
+		mxg = vld1q_u32((void *)&xg); \
+		mxk = vld1q_u32((void *)&xk); \
+		mxo = vld1q_u32((void *)&xo); \
+		mxs = vld1q_u32((void *)&xs); \
+		for (j = 0; j < 160; j ++) { \
+			ROUND_ONE_NEON; \
+		} \
+		vst1q_u32(&x0, mx0); \
+		vst1q_u32(&x4, mx4); \
+		vst1q_u32(&x8, mx8); \
+		vst1q_u32(&xc, mxc); \
+		vst1q_u32(&xg, mxg); \
+		vst1q_u32(&xk, mxk); \
+		vst1q_u32(&xo, mxo); \
+		vst1q_u32(&xs, mxs); \
+	} while (0)
+
 void sw(uint32_t *a, uint32_t *b)
 {
 	uint32_t tmp = *b;
@@ -723,15 +748,19 @@ void sw(uint32_t *a, uint32_t *b)
 #if defined(__AVX2__)
 #  define ROUND_ONE    ROUND_ONE_AVX2
 #  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_SLOW
+#  define FINAL_ROUNDS      FINAL_ROUNDS_SLOW
 #elif defined(__SSE2__)
 #  define ROUND_ONE    ROUND_ONE_SSE2
 #  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_SLOW
+#  define FINAL_ROUNDS      FINAL_ROUNDS_SLOW
 #elif defined(__ARM_NEON__)
 #  define ROUND_ONE    ROUND_ONE_NEON
 #  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_NEON
+#  define FINAL_ROUNDS      FINAL_ROUNDS_NEON
 #else
 #  define ROUND_ONE    ROUND_ONE_SLOW
 #  define SIXTEEN_ROUNDS    SIXTEEN_ROUNDS_SLOW
+#  define FINAL_ROUNDS      FINAL_ROUNDS_SLOW
 #endif
 
 #if 1
@@ -740,6 +769,13 @@ void sw(uint32_t *a, uint32_t *b)
 		int j; \
 		for (j = 0; j < 16; j ++) { \
 			ROUND_ONE; \
+		} \
+	} while (0)
+
+#define FINAL_ROUNDS_SLOW   do { \
+		int k; \
+		for (k = 0; k < 10; k++) { \
+			SIXTEEN_ROUNDS; \
 		} \
 	} while (0)
 
@@ -868,11 +904,9 @@ cubehash_close(sph_cubehash_context *sc, unsigned ub, unsigned n,
 	buf[ptr ++] = ((ub & -z) | z) & 0xFF;
 	READ_STATE(sc);
 	INPUT_BLOCK;
-	for (i = 0; i < 11; i ++) {
-		SIXTEEN_ROUNDS;
-		if (i == 0)
-			xv ^= SPH_C32(1);
-	}
+	SIXTEEN_ROUNDS;
+	xv ^= SPH_C32(1);
+	FINAL_ROUNDS;
 	WRITE_STATE(sc);
 	out = dst;
 	for (y = 0; y < out_size_w32; y++)
